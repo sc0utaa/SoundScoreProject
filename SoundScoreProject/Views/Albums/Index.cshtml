@@ -1,0 +1,151 @@
+﻿@model IEnumerable<SoundScore.Data.Entities.Album>
+
+@{
+    ViewData["Title"] = "Album Search";
+}
+
+<div class="search-container">
+    <h1 class="text-center mb-4">Search Albums</h1>
+    <form method="get" id="searchForm" class="d-flex gap-2">
+        <input type="text"
+               name="searchTerm"
+               id="searchInput"
+               class="form-control form-control-lg"
+               placeholder="Search for albums..."
+               value="@ViewBag.SearchTerm" />
+        <button type="submit" class="btn btn-primary btn-lg">Search</button>
+    </form>
+</div>
+
+<div id="resultsContainer">
+    <div class="loading-spinner">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+
+    @if (Model?.Any() == true)
+    {
+        <div class="album-grid">
+            @foreach (var album in Model)
+            {
+                <div class="album-card">
+                    <img src="@album.CoverImageUrl"
+                         alt="@album.Title cover"
+                         class="album-image"
+                         onerror="this.src='/images/no-cover.png'" />
+                    <div class="album-info">
+                        <h5 class="mb-1">@album.Title</h5>
+                        <p class="text-muted mb-2">@album.Artist.Name</p>
+                        <p class="small mb-1">Released: @album.ReleaseDate.ToString("MMMM dd, yyyy")</p>
+                        <a href="@Url.Action("Details", "Albums", new { id = album.Id })"
+                           class="btn btn-outline-primary btn-sm">View Details</a>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else if (ViewBag.SearchTerm != null)
+    {
+        <div class="text-center mt-4">
+            <p>No albums found matching your search.</p>
+        </div>
+    }
+</div>
+
+@section Styles {
+    <style>
+        .album-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 2rem;
+            padding: 2rem;
+        }
+
+        .album-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+            transition: transform 0.2s;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+            .album-card:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            }
+
+        .album-image {
+            width: 100%;
+            height: 250px;
+            object-fit: cover;
+        }
+
+        .album-info {
+            padding: 1rem;
+        }
+
+        .search-container {
+            max-width: 600px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        .loading-spinner {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .loading .loading-spinner {
+            display: block;
+        }
+    </style>
+}
+
+@section Scripts {
+    <script>
+        document.getElementById('searchForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const container = document.getElementById('resultsContainer');
+            const searchTerm = document.getElementById('searchInput').value;
+
+            container.classList.add('loading');
+
+            try {
+                const response = await fetch(`/Albums/SearchApi?query=${encodeURIComponent(searchTerm)}`);
+                if (!response.ok) throw new Error('Search failed');
+
+                const albums = await response.json();
+
+                container.innerHTML = albums.length ? `
+                            <div class="album-grid">
+                                ${albums.map(album => `
+                                    <div class="album-card">
+                                        <img src="${album.coverImageUrl}"
+                                             alt="${album.title} cover"
+                                             class="album-image"
+                                             onerror="this.src='/images/no-cover.png'" />
+                                        <div class="album-info">
+                                            <h5 class="mb-1">${album.title}</h5>
+                                            <p class="text-muted mb-2">${album.artist.name}</p>
+                                            <p class="small mb-1">Released: ${new Date(album.releaseDate).toLocaleDateString()}</p>
+                                            <a href="/Albums/Details/${album.id}" class="btn btn-outline-primary btn-sm">View Details</a>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : '<div class="text-center mt-4"><p>No albums found matching your search.</p></div>';
+            } catch (error) {
+                container.innerHTML = `
+                            <div class="alert alert-danger mt-4" role="alert">
+                                An error occurred while searching. Please try again.
+                            </div>
+                        `;
+            } finally {
+                container.classList.remove('loading');
+            }
+        });
+    </script>
+}
